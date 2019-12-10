@@ -1,4 +1,5 @@
 import insularObserverFactory from 'insular-observer'
+import managedMapFactory from 'key-master'
 
 export interface IOptions {
   rootMargin?: number | string
@@ -13,10 +14,13 @@ interface IObservedElementOptions extends IOptions {
 type ObserveCallback = (target: Element, listener: (entry: IntersectionObserverEntry) => void) => UnobserveCallback
 type UnobserveCallback = () => void
 
-const observedElements = new WeakMap<
-  Element,
-  Map<(visibilityEntry: IntersectionObserverEntry) => void, IObservedElementOptions>
->()
+const observedElements = managedMapFactory(
+  () => new Map<(visibilityEntry: IntersectionObserverEntry) => void, IObservedElementOptions>(),
+  new WeakMap<
+    Element,
+    Map<(visibilityEntry: IntersectionObserverEntry) => void, IObservedElementOptions>
+  >(),
+)
 const observers = new Map<string, ObserveCallback>()
 
 export function observe<E extends Element>(
@@ -24,7 +28,8 @@ export function observe<E extends Element>(
   callback: (visibilityEntry: IntersectionObserverEntry) => void,
   options: IOptions = {},
 ): void {
-  const existingConfiguration = observedElements.get(target)?.get(callback)
+  const elementCallbacks = observedElements.get(target)
+  const existingConfiguration = elementCallbacks.get(callback)
   if (existingConfiguration) {
     if (areOptionsEqual(options, existingConfiguration)) {
       return
@@ -34,14 +39,18 @@ export function observe<E extends Element>(
   }
 
   const observeElement = getObserver(options)
-  observeElement(target, options.once ? onceObserver.bind(null, callback) : callback)
+  const unobserveCallback = observeElement(target, options.once ? onceObserver.bind(null, callback) : callback)
+  elementCallbacks.set(callback, {
+    ...options,
+    unobserve: unobserveCallback,
+  })
 }
 
 export function unobserve(
   target: Element,
   callback: (visibilityEntry: IntersectionObserverEntry) => void,
 ): void {
-  const elementCallbacks = observedElements.get(target)
+  const elementCallbacks = observedElements.getUnderlyingDataStructure().get(target)
   if (elementCallbacks) {
     const options = elementCallbacks.get(callback)
     if (options) {
