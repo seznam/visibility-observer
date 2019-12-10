@@ -70,8 +70,10 @@ function areOptionsEqual(options1: IOptions, options2: IOptions): boolean {
 }
 
 function onceObserver(callback: Listener, entry: IntersectionObserverEntry): void {
-  unobserve(entry.target, callback)
-  callback(entry)
+  if (entry.isIntersecting) {
+    unobserve(entry.target, callback)
+    callback(entry)
+  }
 }
 
 function getObserver(options: IOptions): ObserveCallback {
