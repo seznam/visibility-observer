@@ -1,0 +1,24 @@
+{
+  "name": "@seznam/visibility-observer",
+  "version": "0.0.0",
+  "description": "Helper making the observation of element's visibility a little more convenient. Based on the IntersectionObserver API.",
+  "main": "index.js",
+  "scripts": {
+    "test": "tslint --project . && jest && stryker run"
+  },
+  "keywords": [
+    "visibility",
+    "dom",
+    "intersection",
+    "observer"
+  ],
+  "author": "Martin Jurča <martin.jurca@firma.seznam.cz>",
+  "license": "ISC",
+  "devDependencies": {
+    "tslint": "^5.20.1",
+    "typescript": "^3.7.3"
+  },
+  "dependencies": {
+    "insular-observer": "^0.1.0"
+  }
+}
