@@ -11,15 +11,13 @@ interface IObservedElementOptions extends IOptions {
   unobserve: () => void
 }
 
-type ObserveCallback = (target: Element, listener: (entry: IntersectionObserverEntry) => void) => UnobserveCallback
+type Listener = (entry: IntersectionObserverEntry) => void
+type ObserveCallback = (target: Element, listener: Listener) => UnobserveCallback
 type UnobserveCallback = () => void
 
 const observedElements = managedMapFactory(
-  () => new Map<(visibilityEntry: IntersectionObserverEntry) => void, IObservedElementOptions>(),
-  new WeakMap<
-    Element,
-    Map<(visibilityEntry: IntersectionObserverEntry) => void, IObservedElementOptions>
-  >(),
+  () => new Map<Listener, IObservedElementOptions>(),
+  new WeakMap<Element, Map<Listener, IObservedElementOptions>>(),
 )
 const observers = new Map<string, ObserveCallback>()
 
@@ -71,7 +69,7 @@ function areOptionsEqual(options1: IOptions, options2: IOptions): boolean {
   )
 }
 
-function onceObserver(callback: (entry: IntersectionObserverEntry) => void, entry: IntersectionObserverEntry): void {
+function onceObserver(callback: Listener, entry: IntersectionObserverEntry): void {
   unobserve(entry.target, callback)
   callback(entry)
 }
