@@ -12,7 +12,7 @@ interface INormalizedOptions extends Required<IOptions> {
 }
 
 interface IObservedElementOptions extends INormalizedOptions {
-  unobserve: () => void
+  unobserve: UnobserveCallback
 }
 
 type Listener = (entry: IntersectionObserverEntry) => void
@@ -23,8 +23,24 @@ const observedElements = managedMapFactory(
   () => new Map<Listener, IObservedElementOptions>(),
   new WeakMap<Element, Map<Listener, IObservedElementOptions>>(),
 )
-const observers = new Map<string, ObserveCallback>()
 
+/**
+ * Registers the provided callback to be called whenever the specified target's visibility changes according to the
+ * provided options. If the <code>once</code> options flag is <code>true</code>, the callback will be invoked only a
+ * single time and only when the target begins in intersect the viewport according to the provided options.
+ *
+ * There can be any number of callbacks registered for every observed target, and every callback may use different
+ * options. Calling <code>observe</code> with the same target, callback and equivalent options has no effect (two
+ * different options objects are considered equivalent if they result in the same behavior). Calling
+ * <code>observe</code> with the same target and callback but different options reconfigures how the callback will be
+ * invoked.
+ *
+ * @param target The target which's visibility is to be observed.
+ * @param callback The callback to call whenever the visibility of the target changes.
+ * @param options The options configuring the target's visibility observing behavior. These options are passed to the
+ *        underlying <code>IntersectionObserver</code>. Note that the <code>IntersectionObserver</code>'s
+ *        <code>root</code> option is ignored.
+ */
 export function observe<E extends Element>(
   target: E,
   callback: (visibilityEntry: IntersectionObserverEntry) => void,
@@ -49,6 +65,16 @@ export function observe<E extends Element>(
   })
 }
 
+/**
+ * Stops reporting the visibility changes for the specified target to the specified callback. Visibility changes will
+ * still be reported to any other callbacks registered for the target.
+ *
+ * Calling this function for a target that is not being observed or a callback that is not currently registered with the
+ * target has not effect.
+ *
+ * @param target The target which's visibility is observed.
+ * @param callback The callback that should no longer be called when the target's visibility changes.
+ */
 export function unobserve(
   target: Element,
   callback: (visibilityEntry: IntersectionObserverEntry) => void,
@@ -106,27 +132,45 @@ function onceObserver(callback: Listener, entry: IntersectionObserverEntry): voi
  * @param options The observer options, configuring its behavior.
  * @return The observer to use with the provided options.
  */
-function getObserver(options: INormalizedOptions): ObserveCallback {
-  const serializedOptions = `${options.rootMargin};${options.threshold};${options.once}`
-  const observer = observers.get(serializedOptions)
-  if (observer) {
-    return observer
+const getObserver = (() => {
+  const observers = new Map<string, ObserveCallback>()
+
+  return (options: INormalizedOptions): ObserveCallback => {
+    const serializedOptions = `${options.rootMargin};${options.threshold};${options.once}`
+    const observer = observers.get(serializedOptions)
+    if (observer) {
+      return observer
+    }
+
+    const newObserver = insularObserverFactory(IntersectionObserver, options)
+    observers.set(serializedOptions, newObserver)
+    return newObserver
   }
+})()
 
-  const newObserver = insularObserverFactory(IntersectionObserver, options)
-  observers.set(serializedOptions, newObserver)
-  return newObserver
-}
-
-function normalizeOptions(options: IOptions): INormalizedOptions {
+/**
+ * Normalizes the provided options by filling in the default values where needed and expanding any shorthands,
+ * simplifying the usage, especially for use with caching and comparison.
+ *
+ * @param options The options to normalize
+ * @return Normalized options, with defaults set for any missing values and all short-hands expanded to full forms.
+ */
+function normalizeOptions({once, rootMargin, threshold}: IOptions): INormalizedOptions {
   return {
-    once: !!options.once,
-    rootMargin: normalizeRootMargin(typeof options.rootMargin !== 'undefined' ? options.rootMargin : '0px 0px 0px 0px'),
-    threshold: typeof options.threshold !== 'undefined' ? options.threshold : 0,
+    once: !!once,
+    rootMargin: normalizeRootMargin(typeof rootMargin !== 'undefined' ? rootMargin : '0px 0px 0px 0px'),
+    threshold: typeof threshold !== 'undefined' ? threshold : 0,
   }
 }
 
-function normalizeRootMargin(rootMargin: number | string) {
+/**
+ * Normalizes the provided rootMargin option to a CSS-compatible string specifying margin for every edge separately
+ * (i.e. expanding any short-hand notation to the full form).
+ *
+ * @param rootMargin The root margin option value to normalize.
+ * @return Normalized root margin with any short-hand notation expanded to the full form.
+ */
+function normalizeRootMargin(rootMargin: number | string): string {
   const parts = (typeof rootMargin === 'number' ? `${rootMargin}px` : rootMargin).trim().split(/\s+/)
   if (parts.length > 4) {
     throw new TypeError(
