@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "description": "Helper making the observation of element's visibility a little more convenient. Based on the IntersectionObserver API.",
   "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
     "build": "rm -rf dist && npm test && npm run compile && cp LICENSE package.json README.md dist/",
     "compile": "tsc --project .",
