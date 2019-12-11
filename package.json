@@ -4,6 +4,11 @@
   "description": "Helper making the observation of element's visibility a little more convenient. Based on the IntersectionObserver API.",
   "main": "index.js",
   "scripts": {
+    "build": "rm -rf dist && npm test && npm run compile && cp LICENSE package.json README.md dist/",
+    "compile": "tsc --project .",
+    "prepublishOnly": "echo 'Run \\'npm run publish-package\\' instead' && exit 1",
+    "check-workspace": "git diff --exit-code >/dev/null && git diff --cached --exit-code >/dev/null",
+    "publish-package": "npm run check-workspace && git push && git push --tags && npm run build && npm publish --access=public --ignore-scripts dist",
     "test": "tslint --project . && jest && stryker run"
   },
   "keywords": [
