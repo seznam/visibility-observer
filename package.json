@@ -12,6 +12,10 @@
     "publish-package": "npm run check-workspace && git push && git push --tags && npm run build && npm publish --access=public --ignore-scripts dist",
     "test": "tslint --project . && jest && stryker run"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seznam/visibility-observer.git"
+  },
   "keywords": [
     "visibility",
     "dom",
@@ -20,6 +24,10 @@
   ],
   "author": "Martin Jurča <martin.jurca@firma.seznam.cz>",
   "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/seznam/visibility-observer/issues"
+  },
+  "homepage": "https://github.com/seznam/visibility-observer#readme",
   "devDependencies": {
     "@types/jest": "^24.0.23",
     "jest": "^24.9.0",
