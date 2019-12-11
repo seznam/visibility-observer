@@ -16,5 +16,8 @@
     "esModuleInterop": true,
 
     "forceConsistentCasingInFileNames": true
-  }
+  },
+  "include": [
+    "index.ts"
+  ]
 }
