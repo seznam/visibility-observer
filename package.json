@@ -21,11 +21,17 @@
   "author": "Martin Jurča <martin.jurca@firma.seznam.cz>",
   "license": "ISC",
   "devDependencies": {
+    "@types/jest": "^24.0.23",
+    "jest": "^24.9.0",
+    "ts-jest": "^24.2.0",
     "tslint": "^5.20.1",
     "typescript": "^3.7.3"
   },
   "dependencies": {
     "insular-observer": "^0.1.0",
     "key-master": "^4.1.0"
+  },
+  "jest": {
+    "preset": "ts-jest"
   }
 }
