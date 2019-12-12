@@ -135,7 +135,7 @@ const getObserver = (() => {
   const observers = new Map<string, ObserveCallback>()
 
   return (options: INormalizedOptions): ObserveCallback => {
-    const serializedOptions = `${options.rootMargin};${options.threshold};${options.once}`
+    const serializedOptions = `${options.rootMargin};${options.threshold}`
     const observer = observers.get(serializedOptions)
     if (observer) {
       return observer
