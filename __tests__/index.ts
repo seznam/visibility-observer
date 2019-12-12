@@ -1,6 +1,6 @@
 // tslint:disable max-classes-per-file
 
-// import {observe, unobserve} from '../index'
+import {IOptions, observe, unobserve} from '../index'
 
 describe('visibility observer', () => {
   interface IExposedIntersectionObserver extends IntersectionObserver {
@@ -106,34 +106,288 @@ describe('visibility observer', () => {
     }
   })
 
-  it('registers the provided target with an intersection observer', () => {})
+  it('registers the provided target with an intersection observer', () => {
+    const target = document.createElement('div')
+    document.body.appendChild(target)
+    const callback = jest.fn()
+    observe(target, callback)
+    expect(intersectionObservers.length).toBe(1)
+    const observer = intersectionObservers[0][0]
+    expect(observer.targets).toEqual([target])
+  })
 
-  it('normalizes the intersection observer options', () => {})
+  it('normalizes the intersection observer options', () => {
+    observe(document.body.appendChild(document.createElement('div')), jest.fn())
+    const observer1 = lastItem(intersectionObservers)[0]
+    expect(observer1.thresholds).toEqual([0])
+    expect(observer1.rootMargin).toBe('0px 0px 0px 0px')
+    expect(observer1.root).toBeNull()
 
-  it('does not pass the root option to the intersection observer', () => {})
+    const randomThreshold1 = Math.random()
+    observe(document.body.appendChild(document.createElement('div')), jest.fn(), {
+      once: false,
+      rootMargin: '10% -15px 0px',
+      threshold: randomThreshold1,
+    })
+    const observer2 = lastItem((intersectionObservers))[0]
+    expect(observer2.thresholds).toEqual([randomThreshold1])
+    expect(observer2.rootMargin).toBe('10% -15px 0px -15px')
+    expect(observer2.root).toBeNull()
 
-  it('reuses intersection observers for the same options', () => {})
+    const randomThreshold2 = Math.random()
+    observe(document.body.lastElementChild!, jest.fn(), {
+      rootMargin: '1px 2px',
+      threshold: [randomThreshold1, randomThreshold2],
+    })
+    const observer3 = lastItem(intersectionObservers)[0]
+    expect(observer3.thresholds).toEqual([randomThreshold1, randomThreshold2])
+    expect(observer3.rootMargin).toBe('1px 2px 1px 2px')
+    expect(observer3.root).toBeNull()
 
-  it('invokes the correct callback when visibility of a target changes', () => {})
+    observe(document.body.lastElementChild!, jest.fn(), {
+      rootMargin: '-33%',
+    })
+    const observer4 = lastItem(intersectionObservers)[0]
+    expect(observer4.rootMargin).toBe('-33% -33% -33% -33%')
 
-  it('allows registration of multiple callbacks for the same target', () => {})
+    observe(document.body.lastElementChild!, jest.fn(), {
+      rootMargin: 42,
+    })
+    const observer5 = lastItem(intersectionObservers)[0]
+    expect(observer5.rootMargin).toBe('42px 42px 42px 42px')
+  })
 
-  it('stops firing the callback for the given target after calling unobserve', () => {})
+  it('does not pass the root option to the intersection observer', () => {
+    const uniqueThreshold = 1 + Math.random()
+    observe(document.body.appendChild(document.createElement('div')), jest.fn(), {
+      root: document.body,
+      threshold: uniqueThreshold,
+    } as IOptions)
+    const observer = lastItem(intersectionObservers)[0]
+    expect(observer.root).toBeNull()
+  })
 
-  it('support registering a one-off callbacks using the once option', () => {})
+  it('reuses intersection observers for the same options', () => {
+    const threshold = 2 + Math.random()
+    observe(document.body.appendChild(document.createElement('div')), jest.fn(), {
+      threshold,
+    })
+    const observer1 = lastItem(intersectionObservers)
+    observe(document.body.appendChild(document.createElement('div')), jest.fn(), {
+      threshold,
+    })
+    const observer2 = lastItem(intersectionObservers)
+    expect(observer1).toBe(observer2)
+  })
 
-  it('does not call the callback if the target is not visible when the once flag is set', () => {})
+  it('invokes the correct callback when visibility of a target changes', () => {
+    const target1 = document.body.appendChild(document.createElement('div'))
+    const target2 = document.body.appendChild(document.createElement('div'))
+    const callback1 = jest.fn()
+    const callback2 = jest.fn()
+    const callback3 = jest.fn()
+    const threshold1 = 3 + Math.random()
+    const threshold2 = 4 + Math.random()
+    observe(target1, callback1, {threshold: threshold1})
+    observe(target2, callback2, {threshold: threshold1})
+    observe(target2, callback3, {threshold: threshold2})
+    const [[, observerCallback1], [, observerCallback2]] = intersectionObservers.slice(-2)
 
-  it('switches observers when calling observe again with the options modified', () => {})
+    fireIntersection(true, 1, observerCallback1, target1)
+    expect(callback1).toHaveBeenCalledTimes(1)
+    expect(callback1.mock.calls[0].length).toBe(1)
+    expect(callback1.mock.calls[0][0] instanceof IntersectionObserverEntry).toBe(true)
+    expect(callback2).not.toHaveBeenCalled()
+    expect(callback3).not.toHaveBeenCalled()
 
-  it('has no effect when calling observe with equivalent arguments or equal', () => {})
+    fireIntersection(true, 1, observerCallback1, target2)
+    expect(callback1).toHaveBeenCalledTimes(1)
+    expect(callback2).toHaveBeenCalledTimes(1)
+    expect(callback3).not.toHaveBeenCalled()
 
-  it('has no effect when calling unobserve for unused callback', () => {})
+    fireIntersection(true, 1, observerCallback2, target2)
+    expect(callback1).toHaveBeenCalledTimes(1)
+    expect(callback2).toHaveBeenCalledTimes(1)
+    expect(callback3).toHaveBeenCalledTimes(1)
+  })
 
-  it('has no effect when calling unobserve for target that is not observed', () => {})
+  it('allows registration of multiple callbacks for the same target', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback1 = jest.fn()
+    const callback2 = jest.fn()
+    const threshold = 5 + Math.random()
+    observe(target, callback1, {threshold})
+    observe(target, callback2, {threshold})
+    fireIntersection(true, 1)
+    expect(callback1).toHaveBeenCalledTimes(1)
+    expect(callback2).toHaveBeenCalledTimes(1)
+    expect(callback2).toHaveBeenLastCalledWith(...callback1.mock.calls[0])
+  })
 
-  afterEach(() => {
-    intersectionObservers.splice(0)
+  it('stops firing the callback for the given target after calling unobserve', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback = jest.fn()
+    const threshold = 6 + Math.random()
+    observe(target, callback, {threshold})
+    fireIntersection(true, 1)
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(2)
+    unobserve(target, callback)
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(2)
+  })
+
+  it('support registering a one-off callbacks using the once option', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback = jest.fn()
+    const threshold = 7 + Math.random()
+    observe(target, callback, {
+      once: true,
+      threshold,
+    })
+    fireIntersection(true, 1)
+    fireIntersection(true, 1)
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not call the callback if the target is not visible when the once flag is set', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback = jest.fn()
+    const threshold = 8 + Math.random()
+    observe(target, callback, {
+      once: true,
+      threshold,
+    })
+    fireIntersection(false, 0)
+    fireIntersection(false, 0.5)
+    fireIntersection(false, 9)
+    expect(callback).not.toHaveBeenCalled()
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(1)
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(1)
+  })
+
+  it('switches observers when calling observe again with the options modified', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback = jest.fn()
+    const threshold1 = 9 + Math.random()
+    const threshold2 = 10 + Math.random()
+    observe(target, callback, {threshold: threshold1})
+    const [originalObserver] = lastItem(intersectionObservers)
+    expect(originalObserver.targets.includes(target)).toBe(true)
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(1)
+    observe(target, callback, {threshold: threshold2})
+    const [[observer1, observerCallback1], [observer2, observerCallback2]] = intersectionObservers.slice(-2)
+    expect(observer1).toBe(originalObserver)
+    expect(observer1.targets.includes(target)).toBe(false)
+    expect(observer2.targets.includes(target)).toBe(true)
+    fireIntersection(true, 1, observerCallback1)
+    expect(callback).toHaveBeenCalledTimes(1)
+    fireIntersection(true, 1, observerCallback2)
+    expect(callback).toHaveBeenCalledTimes(2)
+  })
+
+  it('has no effect when calling observe with equivalent arguments or equal', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback = jest.fn()
+    const threshold = 11 + Math.random()
+    const initialOptions: IOptions = {
+      rootMargin: '121px 121px 121px 121px',
+      threshold,
+    }
+    observe(target, callback, initialOptions)
+    const observerCount = intersectionObservers.length
+    observe(target, callback, initialOptions)
+    observe(target, callback, {...initialOptions})
+    observe(target, callback, {
+      ...initialOptions,
+      once: false,
+    })
+    observe(target, callback, {
+      ...initialOptions,
+      rootMargin: '121px 121px 121px',
+    })
+    observe(target, callback, {
+      ...initialOptions,
+      rootMargin: '121px 121px',
+    })
+    observe(target, callback, {
+      ...initialOptions,
+      rootMargin: '  121px  121px   ',
+    })
+    observe(target, callback, {
+      ...initialOptions,
+      rootMargin: '121px',
+    })
+    observe(target, callback, {
+      ...initialOptions,
+      rootMargin: 121,
+    })
+    expect(intersectionObservers.length).toBe(observerCount)
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(1)
+  })
+
+  it('has no effect when calling unobserve for unused callback', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback1 = jest.fn()
+    const callback2 = jest.fn()
+    const threshold = 12 + Math.random()
+    observe(target, callback1, {threshold})
+    unobserve(target, callback2)
+    fireIntersection(true, 1)
+    expect(callback1).toHaveBeenCalledTimes(1)
+  })
+
+  it('has no effect when calling unobserve for target that is not observed', () => {
+    const target1 = document.body.appendChild(document.createElement('div'))
+    const target2 = document.body.appendChild(document.createElement('div'))
+    const callback = jest.fn()
+    const threshold = 13 + Math.random()
+    observe(target1, callback, {threshold})
+    unobserve(target2, callback)
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(1)
+  })
+
+  it('must not change the used observer for changing the once flag in options', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback = jest.fn()
+    const threshold = 14 + Math.random()
+    observe(target, callback, {threshold})
+    const observersCount = intersectionObservers.length
+    observe(target, callback, {
+      once: false,
+      threshold,
+    })
+    observe(target, callback, {
+      once: true,
+      threshold,
+    })
+    expect(intersectionObservers.length).toBe(observersCount)
+  })
+
+  it('must register/deregister the callback correctly when changing the once flag in options', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback = jest.fn()
+    const threshold = 15 + Math.random()
+    observe(target, callback, {
+      once: false,
+      threshold,
+    })
+    observe(target, callback, {
+      once: true,
+      threshold,
+    })
+    observe(target, callback, {
+      once: false,
+      threshold,
+    })
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(1)
   })
 
   function fireIntersection(
@@ -142,7 +396,7 @@ describe('visibility observer', () => {
     callback?: IntersectionObserverCallback,
     target?: Element,
   ): void {
-    const observerCallback = callback || intersectionObservers[intersectionObservers.length - 1][1]
+    const observerCallback = callback || lastItem(intersectionObservers)[1]
     if (!observerCallback) {
       throw new Error(`There are no known intersection observers`)
     }
@@ -172,5 +426,13 @@ describe('visibility observer', () => {
       target,
       time: performance.now(),
     })
+  }
+
+  function lastItem<T>(array: readonly T[]): T {
+    if (!array.length) {
+      throw new Error('The provided array is empty')
+    }
+
+    return array[array.length - 1]
   }
 })
