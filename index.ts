@@ -1,9 +1,8 @@
 import insularObserverFactory from 'insular-observer'
 import managedMapFactory from 'key-master'
 
-export interface IOptions {
+export interface IOptions extends Omit<IntersectionObserverInit, 'root' | 'rootMargin'> {
   rootMargin?: number | string
-  threshold?: number | number[]
   once?: boolean
 }
 
