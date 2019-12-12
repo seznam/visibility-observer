@@ -29,6 +29,10 @@
   },
   "homepage": "https://github.com/seznam/visibility-observer#readme",
   "devDependencies": {
+    "@stryker-mutator/core": "^2.4.0",
+    "@stryker-mutator/html-reporter": "^2.4.0",
+    "@stryker-mutator/jest-runner": "^2.4.0",
+    "@stryker-mutator/typescript": "^2.4.0",
     "@types/jest": "^24.0.23",
     "jest": "^24.9.0",
     "ts-jest": "^24.2.0",
@@ -40,6 +44,11 @@
     "key-master": "^4.1.0"
   },
   "jest": {
-    "preset": "ts-jest"
+    "preset": "ts-jest",
+    "globals": {
+      "ts-jest": {
+        "diagnostics": false
+      }
+    }
   }
 }

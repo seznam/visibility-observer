@@ -1,6 +1,6 @@
 // tslint:disable max-classes-per-file
 
-import {IOptions, observe, unobserve} from '../index'
+import {IOptions, observe, unobserve} from '../dist/index'
 
 describe('visibility observer', () => {
   interface IExposedIntersectionObserver extends IntersectionObserver {
@@ -8,6 +8,7 @@ describe('visibility observer', () => {
   }
 
   const intersectionObservers: Array<[IExposedIntersectionObserver, IntersectionObserverCallback]> = []
+  let onceFlagValueTest: null | ((value: any) => void) = null
 
   beforeAll(() => {
     if (!window.DOMRectReadOnly) {
@@ -73,6 +74,12 @@ describe('visibility observer', () => {
 
       constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
         const currentOptions = options || {}
+        expect(typeof (currentOptions as any).once).toBe('boolean')
+        if (onceFlagValueTest) {
+          onceFlagValueTest((currentOptions as any).once)
+          onceFlagValueTest = null
+        }
+
         this.root = currentOptions.root || null
         this.rootMargin = currentOptions.rootMargin || '0px 0px 0px 0px'
         this.thresholds = typeof currentOptions.threshold === 'number' ?
@@ -329,6 +336,11 @@ describe('visibility observer', () => {
     expect(intersectionObservers.length).toBe(observerCount)
     fireIntersection(true, 1)
     expect(callback).toHaveBeenCalledTimes(1)
+    observe(target, callback, {
+      ...initialOptions,
+      rootMargin: 122,
+    })
+    expect(intersectionObservers.length).toBe(observerCount + 1)
   })
 
   it('has no effect when calling unobserve for unused callback', () => {
@@ -388,6 +400,51 @@ describe('visibility observer', () => {
     })
     fireIntersection(true, 1)
     expect(callback).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects an invalid rootMargin option value', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback = jest.fn()
+    expect(() => {
+      observe(target, callback, {
+        rootMargin: '10 px 10px 10px 10px',
+      })
+    }).toThrowError(TypeError)
+    try {
+      observe(target, callback, {
+        rootMargin: '0px 0px 0px 0px 0px',
+      })
+      throw new Error('This should have failed')
+    } catch (error) {
+      expect(error.message).toMatch('Invalid root margin')
+      expect(error.message).toMatch('0px 0px 0px 0px 0px')
+    }
+  })
+
+  it('normalizes the once flag correctly', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback = jest.fn()
+    const threshold = 16 + Math.random()
+    onceFlagValueTest = (value) => {
+      expect(value).toBe(false)
+    }
+    observe(target, callback, {
+      threshold,
+    })
+    onceFlagValueTest = (value) => {
+      expect(value).toBe(true)
+    }
+    observe(target, callback, {
+      once: true,
+      threshold,
+    })
+    onceFlagValueTest = (value) => {
+      expect(value).toBe(false)
+    }
+    observe(target, callback, {
+      once: false,
+      threshold,
+    })
   })
 
   function fireIntersection(
