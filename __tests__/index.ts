@@ -447,6 +447,30 @@ describe('visibility observer', () => {
     })
   })
 
+  it('must return a callback for stopping the observation from the fhe observe function', () => {
+    const target = document.body.appendChild(document.createElement('div'))
+    const callback1 = jest.fn()
+    const callback2 = jest.fn()
+    const threshold = 17 + Math.random()
+    const unobserveCallback1 = observe(target, callback1, {threshold})
+    const unobserveCallback2 = observe(target, callback2, {threshold})
+    expect(typeof unobserveCallback1).toBe('function')
+    expect(typeof unobserveCallback2).toBe('function')
+    fireIntersection(true, 1)
+    expect(callback1).toHaveBeenCalledTimes(1)
+    expect(callback2).toHaveBeenCalledTimes(1)
+
+    unobserveCallback1()
+    fireIntersection(true, 1)
+    expect(callback1).toHaveBeenCalledTimes(1)
+    expect(callback2).toHaveBeenCalledTimes(2)
+
+    unobserveCallback2()
+    fireIntersection(true, 1)
+    expect(callback1).toHaveBeenCalledTimes(1)
+    expect(callback2).toHaveBeenCalledTimes(2)
+  })
+
   function fireIntersection(
     isIntersecting: boolean,
     ratio: number,

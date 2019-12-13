@@ -39,18 +39,22 @@ const observedElements = managedMapFactory(
  * @param options The options configuring the target's visibility observing behavior. These options are passed to the
  *        underlying <code>IntersectionObserver</code>. Note that the <code>IntersectionObserver</code>'s
  *        <code>root</code> option is ignored.
+ * @return A callback that can be used to stop reporting visibility changes for this specified target to the callback
+ *         provided to the <code>observe()</code> function. Calling the returned callback is equivalent to calling the
+ *         <code>unobserve</code> function with the same target and callback provided to the <code>observe</code>
+ *         function.
  */
 export function observe<E extends Element>(
   target: E,
   callback: (visibilityEntry: IntersectionObserverEntry) => void,
   options: IOptions = {},
-): void {
+): UnobserveCallback {
   const normalizedOptions = normalizeOptions(options)
   const elementCallbacks = observedElements.get(target)
   const existingConfiguration = elementCallbacks.get(callback)
   if (existingConfiguration) {
     if (areOptionsEqual(normalizedOptions, existingConfiguration)) {
-      return
+      return () => unobserve(target, callback)
     }
 
     unobserve(target, callback)
@@ -62,6 +66,8 @@ export function observe<E extends Element>(
     ...normalizedOptions,
     unobserve: unobserveCallback,
   })
+
+  return () => unobserve(target, callback)
 }
 
 /**
