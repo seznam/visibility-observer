@@ -46,12 +46,13 @@ const observedElements = managedMapFactory(
  */
 export function observe<E extends Element>(
   target: E,
-  callback: (visibilityEntry: IntersectionObserverEntry) => void,
+  callback: (visibilityEntry: IntersectionObserverEntry & {target: E}) => void,
   options: IOptions = {},
 ): UnobserveCallback {
   const normalizedOptions = normalizeOptions(options)
   const elementCallbacks = observedElements.get(target)
-  const existingConfiguration = elementCallbacks.get(callback)
+  const listener = callback as Listener
+  const existingConfiguration = elementCallbacks.get(listener)
   if (existingConfiguration) {
     if (areOptionsEqual(normalizedOptions, existingConfiguration)) {
       return () => unobserve(target, callback)
@@ -61,8 +62,8 @@ export function observe<E extends Element>(
   }
 
   const observeElement = getObserver(normalizedOptions)
-  const unobserveCallback = observeElement(target, options.once ? onceObserver.bind(null, callback) : callback)
-  elementCallbacks.set(callback, {
+  const unobserveCallback = observeElement(target, options.once ? onceObserver.bind(null, listener) : listener)
+  elementCallbacks.set(listener, {
     ...normalizedOptions,
     unobserve: unobserveCallback,
   })
@@ -80,16 +81,17 @@ export function observe<E extends Element>(
  * @param target The target which's visibility is observed.
  * @param callback The callback that should no longer be called when the target's visibility changes.
  */
-export function unobserve(
+export function unobserve<E extends Element>(
   target: Element,
-  callback: (visibilityEntry: IntersectionObserverEntry) => void,
+  callback: (visibilityEntry: IntersectionObserverEntry & {target: E}) => void,
 ): void {
   const elementCallbacks = observedElements.getUnderlyingDataStructure().get(target)
   if (elementCallbacks) {
-    const options = elementCallbacks.get(callback)
+    const listener = callback as Listener
+    const options = elementCallbacks.get(listener)
     if (options) {
       options.unobserve()
-      elementCallbacks.delete(callback)
+      elementCallbacks.delete(listener)
       if (!elementCallbacks.size) {
         observedElements.delete(target)
       }
