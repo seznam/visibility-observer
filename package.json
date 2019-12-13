@@ -40,7 +40,7 @@
     "typescript": "^3.7.3"
   },
   "dependencies": {
-    "insular-observer": "^0.1.0",
+    "insular-observer": "^0.1.1",
     "key-master": "^4.1.0"
   },
   "jest": {
