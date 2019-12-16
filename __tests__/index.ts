@@ -400,6 +400,18 @@ describe('visibility observer', () => {
     })
     fireIntersection(true, 1)
     expect(callback).toHaveBeenCalledTimes(1)
+    observe(target, callback, {
+      once: true,
+      threshold,
+    })
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(2)
+    observe(target, callback, {
+      once: false,
+      threshold,
+    })
+    fireIntersection(true, 1)
+    expect(callback).toHaveBeenCalledTimes(3)
   })
 
   it('rejects an invalid rootMargin option value', () => {
