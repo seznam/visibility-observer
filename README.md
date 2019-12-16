@@ -54,6 +54,12 @@ observe(image, onVisibilityChange, {
 })
 
 function onVisibilityChange(
+  // The observe function constrains the callback's parameter type to
+  // IntersectionObserverEntry & {target: typeof elementToObserve}, which is
+  // especially handy with in-line callbacks, removing the need to provide the
+  // type annotation for the parameter in such case and providing additional
+  // type safety if the observed element is referenced through the intersection
+  // entry passed to the callback.
   visibilityEntry: IntersectionObserverEntry & {target: HTMLImageElement},
 ): void {
   if (visibilityEntry.isIntersecting) {
