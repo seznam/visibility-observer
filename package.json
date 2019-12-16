@@ -1,6 +1,6 @@
 {
   "name": "@seznam/visibility-observer",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Helper making the observation of element's visibility a little more convenient. Based on the IntersectionObserver API.",
   "main": "index.js",
   "types": "index.d.ts",
