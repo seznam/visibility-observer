@@ -164,14 +164,21 @@ describe('visibility observer', () => {
     expect(observer5.rootMargin).toBe('42px 42px 42px 42px')
   })
 
-  it('does not pass the root option to the intersection observer', () => {
+  it('does pass the root option to the intersection observer', () => {
     const uniqueThreshold = 1 + Math.random()
     observe(document.body.appendChild(document.createElement('div')), jest.fn(), {
       root: document.body,
       threshold: uniqueThreshold,
-    } as IOptions)
+    })
     const observer = lastItem(intersectionObservers)[0]
-    expect(observer.root).toBeNull()
+    expect(observer.root).toBe(document.body)
+
+    observe(document.body.appendChild(document.createElement('div')), jest.fn(), {
+      threshold: uniqueThreshold,
+    })
+    const observer2 = lastItem(intersectionObservers)[0]
+    expect(observer2).not.toBe(observer)
+    expect(observer2.root).toBe(null)
   })
 
   it('reuses intersection observers for the same options', () => {

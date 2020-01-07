@@ -1,12 +1,13 @@
 import insularObserverFactory from 'insular-observer'
 import managedMapFactory from 'key-master'
 
-export interface IOptions extends Omit<IntersectionObserverInit, 'root' | 'rootMargin'> {
+export interface IOptions extends Omit<IntersectionObserverInit, 'rootMargin'> {
   rootMargin?: number | string
   once?: boolean
 }
 
 interface INormalizedOptions extends Required<IOptions> {
+  root: Element
   rootMargin: string
 }
 
@@ -18,31 +19,46 @@ type Listener = (entry: IntersectionObserverEntry) => void
 type ObserveCallback = (target: Element, listener: Listener) => UnobserveCallback
 type UnobserveCallback = () => void
 
+// We are using a private element to referer to the cases when the root option is null (viewport) to simplify
+// intersection observer caching using a WeakMap.
+const VIEWPORT_ELEMENT = typeof document !== 'undefined' ? document.createElement('div') : {} as Element
+
+interface IManagedWeakMap<K extends object, V> {
+  has(key: K): boolean
+  get(key: K): V
+  delete(key: K): boolean
+  set(key: K, value: V): void
+  getUnderlyingDataStructure(): WeakMap<K, V>
+}
+
 const observedElements = managedMapFactory(
-  () => new Map<Listener, IObservedElementOptions>(),
-  new WeakMap<Element, Map<Listener, IObservedElementOptions>>(),
+  () => managedMapFactory(
+    () => new Map<Listener, IObservedElementOptions>(),
+    new WeakMap<Element, Map<Listener, IObservedElementOptions>>(),
+  ),
+  new WeakMap<Element, IManagedWeakMap<Element, Map<Listener, IObservedElementOptions>>>(),
 )
 
 /**
  * Registers the provided callback to be called whenever the specified target's visibility changes according to the
  * provided options. If the <code>once</code> options flag is <code>true</code>, the callback will be invoked only a
- * single time and only when the target begins in intersect the viewport according to the provided options.
+ * single time and only when the target begins in intersect the viewport (or the root element, if specified) according
+ * to the provided options.
  *
- * There can be any number of callbacks registered for every observed target, and every callback may use different
- * options. Calling <code>observe</code> with the same target, callback and equivalent options has no effect (two
- * different options objects are considered equivalent if they result in the same behavior). Calling
- * <code>observe</code> with the same target and callback but different options reconfigures how the callback will be
- * invoked.
+ * There can be any number of callbacks registered for every observed target and root element, and every callback may
+ * use different options. Calling <code>observe</code> with the same target, callback and equivalent options has no
+ * effect (two different options objects are considered equivalent if they result in the same behavior). Calling
+ * <code>observe</code> with the same target, callback and root element option but different other options reconfigures
+ * how the callback will be invoked.
  *
  * @param target The target which's visibility is to be observed.
  * @param callback The callback to call whenever the visibility of the target changes.
  * @param options The options configuring the target's visibility observing behavior. These options are passed to the
- *        underlying <code>IntersectionObserver</code>. Note that the <code>IntersectionObserver</code>'s
- *        <code>root</code> option is ignored.
+ *        underlying <code>IntersectionObserver</code>.
  * @return A callback that can be used to stop reporting visibility changes for this specified target to the callback
  *         provided to the <code>observe()</code> function. Calling the returned callback is equivalent to calling the
- *         <code>unobserve</code> function with the same target and callback provided to the <code>observe</code>
- *         function.
+ *         <code>unobserve</code> function with the same target, callback (and root element, if any) provided to the
+ *         <code>observe</code> function.
  */
 export function observe<E extends Element>(
   target: E,
@@ -50,51 +66,63 @@ export function observe<E extends Element>(
   options: IOptions = {},
 ): UnobserveCallback {
   const normalizedOptions = normalizeOptions(options)
-  const elementCallbacks = observedElements.get(target)
+  const elementCallbacks = observedElements.get(normalizedOptions.root).get(target)
   const listener = callback as Listener
   const existingConfiguration = elementCallbacks.get(listener)
+  const unobserveCallback = () => unobserve(target, callback, normalizedOptions.root)
   if (existingConfiguration) {
     if (areOptionsEqual(normalizedOptions, existingConfiguration)) {
-      return () => unobserve(target, callback)
+      return unobserveCallback
     }
 
-    unobserve(target, callback)
+    unobserveCallback()
   }
 
   const observeElement = getObserver(normalizedOptions)
-  const unobserveCallback = observeElement(target, options.once ? onceObserver.bind(null, listener) : listener)
+  const internalUnobserveCallback = observeElement(target, options.once ? onceObserver.bind(null, listener) : listener)
   elementCallbacks.set(listener, {
     ...normalizedOptions,
-    unobserve: unobserveCallback,
+    unobserve: internalUnobserveCallback,
   })
 
-  return () => unobserve(target, callback)
+  return unobserveCallback
 }
 
 /**
  * Stops reporting the visibility changes for the specified target to the specified callback. Visibility changes will
- * still be reported to any other callbacks registered for the target.
+ * still be reported to any other callbacks registered for the target or if the callback is used with other root
+ * elements for the target.
  *
- * Calling this function for a target that is not being observed or a callback that is not currently registered with the
- * target has not effect.
+ * Calling this function for a target that is not being observed for the specified root element or with a callback that
+ * is not currently registered with the target has not effect.
  *
  * @param target The target which's visibility is observed.
  * @param callback The callback that should no longer be called when the target's visibility changes.
+ * @param root The container which is considered to be the viewport, or <code>null</code> of the browser's native
+ *        viewport is used.
  */
 export function unobserve<E extends Element>(
   target: E,
   callback: (visibilityEntry: IntersectionObserverEntry & {target: E}) => void,
+  root: undefined | null | Element = null,
 ): void {
-  const elementCallbacks = observedElements.getUnderlyingDataStructure().get(target)
-  if (elementCallbacks) {
-    const listener = callback as Listener
-    const options = elementCallbacks.get(listener)
-    if (options) {
-      options.unobserve()
-      elementCallbacks.delete(listener)
-      if (!elementCallbacks.size) {
-        observedElements.delete(target)
-      }
+  const elementsObservedWithinRoot = observedElements.getUnderlyingDataStructure().get(root || VIEWPORT_ELEMENT)
+  if (!elementsObservedWithinRoot) {
+    return
+  }
+
+  const elementCallbacks = elementsObservedWithinRoot.getUnderlyingDataStructure().get(target)
+  if (!elementCallbacks) {
+    return
+  }
+
+  const listener = callback as Listener
+  const options = elementCallbacks.get(listener)
+  if (options) {
+    options.unobserve()
+    elementCallbacks.delete(listener)
+    if (!elementCallbacks.size) {
+      elementsObservedWithinRoot.delete(target)
     }
   }
 }
@@ -140,17 +168,23 @@ function onceObserver(callback: Listener, entry: IntersectionObserverEntry): voi
  * @return The observer to use with the provided options.
  */
 const getObserver = (() => {
-  const observers = new Map<string, ObserveCallback>()
+  const observers = managedMapFactory(
+    () => new Map<string, ObserveCallback>(),
+    new WeakMap<Element, Map<string, ObserveCallback>>(),
+  )
 
   return (options: INormalizedOptions): ObserveCallback => {
     const serializedOptions = `${options.rootMargin};${options.threshold}`
-    const observer = observers.get(serializedOptions)
+    const observer = observers.get(options.root).get(serializedOptions)
     if (observer) {
       return observer
     }
 
-    const newObserver = insularObserverFactory(IntersectionObserver, options)
-    observers.set(serializedOptions, newObserver)
+    const newObserver = insularObserverFactory(IntersectionObserver, {
+      ...options,
+      root: options.root === VIEWPORT_ELEMENT ? null : options.root,
+    })
+    observers.get(options.root).set(serializedOptions, newObserver)
     return newObserver
   }
 })()
@@ -162,9 +196,10 @@ const getObserver = (() => {
  * @param options The options to normalize
  * @return Normalized options, with defaults set for any missing values and all short-hands expanded to full forms.
  */
-function normalizeOptions({once, rootMargin, threshold}: IOptions): INormalizedOptions {
+function normalizeOptions({once, root, rootMargin, threshold}: IOptions): INormalizedOptions {
   return {
     once: !!once,
+    root: root || VIEWPORT_ELEMENT,
     rootMargin: normalizeRootMargin(typeof rootMargin !== 'undefined' ? rootMargin : '0px 0px 0px 0px'),
     threshold: typeof threshold !== 'undefined' ? threshold : 0,
   }

@@ -29,27 +29,35 @@ const image = document.getElementById('pic') as HTMLImageElement
 
 observe(image, onVisibilityChange, {
   // The optional configuration object accepts all the options of the
-  // IntersectionObserver's constructor except for the root option (the
-  // observed element's visibility is always watched relative to the
-  // viewport).
+  // IntersectionObserver's constructor - see
+  // https://mdn.io/IntersectionObserver.IntersectionObserver.
 
   // CSS-like string representing the margins considered around the viewport
-  // when determining whether the observed element is intersecting it. All
-  // CSS shorthand notations are accepted. The observe function also supports
-  // a single number for this option, which represents an equally large margin
-  // width for all edges in pixels. This option default to '0px'.
+  // or the specified root element when determining whether the observed
+  // element is intersecting it. All CSS shorthand notations are accepted. The
+  // observe function also supports a single number for this option, which
+  // represents an equally large margin width for all edges in pixels. This
+  // option defaults to '0px'.
   rootMargin: 16, // equivalent to '16px 16px 16px 16px',
 
-  // A number or a an array of numbers in range [0, 1]. When the element's
-  // visibility ratio crosses any of the specified thresholds either way, the
-  // provided callback will be called. This option defaults to 0.
+  // A number or a an array of numbers within the range [0, 1]. When the
+  // element's visibility ratio crosses any of the specified thresholds either
+  // way, the provided callback will be called. This option defaults to 0.
   threshold: 0.5,
+
+  // The optional root element whose bounds are treated as the bounding box of
+  // the viewport for the observed target element. If set to null, the bounds
+  // of the document viewport are used. If specified, the same root element
+  // must be passed as the third argument to the unobserve() function to
+  // deregister the callback. Defaults to null.
+  root: null,
 
   // Unlike the IntersectionObserver API, the visibility observer allows
   // registration of one-off callbacks. If this option is set to true, the
   // callback will be only invoked once the observed element is intersecting
-  // the viewport and it will only be invoked once. The callback will then be
-  // automatically deregistered afterwards. Defaults to false.
+  // the viewport (or the specified root element) and it will only be invoked
+  // once. The callback will then be automatically deregistered afterwards.
+  // Defaults to false.
   once: false,
 })
 
