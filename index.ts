@@ -82,7 +82,7 @@ export function observe<E extends Element>(
  * @param callback The callback that should no longer be called when the target's visibility changes.
  */
 export function unobserve<E extends Element>(
-  target: Element,
+  target: E,
   callback: (visibilityEntry: IntersectionObserverEntry & {target: E}) => void,
 ): void {
   const elementCallbacks = observedElements.getUnderlyingDataStructure().get(target)
