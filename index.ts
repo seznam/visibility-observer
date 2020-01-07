@@ -215,7 +215,7 @@ function normalizeOptions({once, root, rootMargin, threshold}: IOptions): INorma
 function normalizeRootMargin(rootMargin: number | string): string {
   const parts = (typeof rootMargin === 'number' ? `${rootMargin}px` : rootMargin).trim().split(/\s+/)
   if (parts.length > 4) {
-    throw new TypeError(
+    throw new SyntaxError(
       'Invalid root margin, expected a single number or a string containing 1 to 4 numbers suffixed by "px" or "%" ' +
       `and separated by whitespace: ${rootMargin}`,
     )

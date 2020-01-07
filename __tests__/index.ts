@@ -428,7 +428,7 @@ describe('visibility observer', () => {
       observe(target, callback, {
         rootMargin: '10 px 10px 10px 10px',
       })
-    }).toThrowError(TypeError)
+    }).toThrowError(SyntaxError)
     try {
       observe(target, callback, {
         rootMargin: '0px 0px 0px 0px 0px',
